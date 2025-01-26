@@ -42,8 +42,8 @@
 &sercom1 {
 	status = "okay";
 	compatible = "atmel,sam0-spi";
-	dipo = <0>;
-	dopo = <2>;
+	dipo = <0x2>;
+	dopo = <0x0>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -56,7 +56,7 @@
 		compatible = "zephyr,sdhc-spi-slot";
 		reg = <1>;
 		status = "okay";
-		spi-max-frequency = <24000000>;
+		spi-max-frequency = <1000000>;
 		sd {
 			compatible = "zephyr,sdmmc-disk";
 			disk-name = "SD";
