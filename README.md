@@ -1,6 +1,4 @@
-```
-bash
-
+``` bash
 python3 -m pip install west
 python3 -m pip install pyelftools
 
