@@ -1,0 +1,66 @@
+/*
+ * Copyright (c) 2018 Bryan O'Donoghue
+ * Copyright (c) 2024 Gerson Fernando Budke <nandojve@gmail.com>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+#include <freq.h>
+#include <atmel/samd21.dtsi>
+#include <atmel/samx2xx18.dtsi>
+#include "samd21-pinctrl.dtsi"
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	model = "SAM D21 Xplained Pro";
+	compatible = "samd21,xpro", "atmel,samd21j18a", "atmel,samd21";
+
+	chosen {
+		zephyr,console = &sercom0;
+		zephyr,shell-uart = &sercom0;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+	};
+};
+
+&cpu0 {
+	clock-frequency = <DT_FREQ_M(48)>;
+};
+
+&sercom0 {
+	status = "okay";
+	compatible = "atmel,sam0-uart";
+	current-speed = <115200>;
+	rxpo = <3>;
+	txpo = <1>;
+
+	pinctrl-0 = <&sercom0_uart_default>;
+	pinctrl-names = "default";
+};
+
+&sercom1 {
+	status = "okay";
+	compatible = "atmel,sam0-spi";
+	dipo = <0>;
+	dopo = <2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-0 = <&sercom1_spi_default>;
+	pinctrl-names = "default";
+
+	cs-gpios = <&porta 0 GPIO_ACTIVE_LOW>;
+
+	sdhc: sdhc@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <1>;
+		status = "okay";
+		spi-max-frequency = <24000000>;
+		sd {
+			compatible = "zephyr,sdmmc-disk";
+			disk-name = "SD";
+			status = "okay";
+		};
+	};
+};

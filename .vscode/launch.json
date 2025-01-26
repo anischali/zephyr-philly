@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "JLink Debug",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+            "device": "ATSAMD21G18A",
+            "interface": "swd",
+            "servertype": "openocd",
+            "configFiles": ["${workspaceFolder}/philly/boards/atmel/samd21/support/openocd.cfg"],
+            "request": "launch",
+            "type": "cortex-debug",
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw",
+        },
+        {
+            "name": "JLink Debug (attach)",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+            "device": "ATSAMD21G18A",
+            "interface": "swd",
+            "request": "attach",
+            "type": "cortex-debug",
+            "runToEntryPoint": "main",
+            "servertype": "openocd",
+            "configFiles": ["${workspaceFolder}/philly/boards/atmel/samd21/support/openocd.cfg"],
+            "showDevDebugOutput": "raw",
+        }
+    ]
+}

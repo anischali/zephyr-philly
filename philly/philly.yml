@@ -1,0 +1,7 @@
+sample:
+  description: Philly application
+  name: phillyapp 
+common:
+  build_only: true
+  integration_platforms:
+    - samd21

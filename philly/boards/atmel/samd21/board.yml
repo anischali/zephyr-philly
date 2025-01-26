@@ -1,0 +1,6 @@
+board:
+  name: samd21
+  full_name: SAM D21 custom board
+  vendor: atmel
+  socs:
+    - name: samd21g18a

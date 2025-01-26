@@ -1,0 +1,56 @@
+{
+    "tasks": [
+        {
+            "label": "build",
+            "type": "process",
+            "command": "make",
+            "args": ["-j", "8"],
+            "options": {
+                "cwd": "${workspaceRoot}/zephyr"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOrder": "sequence",
+            "dependsOn":["configure", "clean"],
+        },
+        {
+            "label": "clean",
+            "type": "process",
+            "command": "make",
+            "args": ["-j", "8", "clean"],
+            "options": {
+                "cwd": "${workspaceRoot}/build"
+            },
+        },
+        {
+            "label": "configure",
+            "type": "process",
+            "command":"${workspaceRoot}/.vscode/cmake.sh",
+            "args": ["${workspaceRoot}", "${armToolchainPath}"],
+        },
+        {
+            "label": "clean all",
+            "type": "process",
+            "command":"rm -rf ${workspaceRoot}/build",
+        },
+        {
+            "label": "loadenv",
+            "type": "process",
+            "args": [ "${workspaceRoot}" ],
+            "isBackground": true,
+            "hide": true,
+            "linux":{
+                "command": "${workspaceRoot}/.vscode/loadenv.sh",
+            },
+            "windows": {
+                "command": "echo"
+            },
+            "runOptions": {
+                "runOn": "folderOpen",
+            }
+        }
+    ],
+    "version": "2.0.0"
+}
