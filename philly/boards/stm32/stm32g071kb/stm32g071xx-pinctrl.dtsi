@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2022, Gerson Fernando Budke <nandojve@gmail.com>
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/stm32-pinctrl.h>
+
+&pinctrl {
+
+	/omit-if-no-ref/ lpuart1_tx_pa10: usart1_tx_pa10 {
+		pinmux = <STM32_PINMUX('A', 10, AF0)>;
+	};
+
+	/omit-if-no-ref/ lpuart1_rx_pa09: usart1_rx_pa09 {
+		pinmux = <STM32_PINMUX('A', 9, AF0)>;
+	};
+};
