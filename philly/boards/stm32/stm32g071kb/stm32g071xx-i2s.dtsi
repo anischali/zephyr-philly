@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2024 Klaus Nagel, <nagelkl01@gmail.com>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+    soc {
+        i2s1: i2s@40013000 {
+	        compatible = "st,stm32-i2s";
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+	        reg = <0x40013000 0x400>;
+	        clocks = <&rcc STM32_CLOCK(APB1_2, 12U)>;
+	        interrupts = <25 0>;
+            dmas = <&dma1 4 0 0x400 
+            		&dma1 3 0 0x400>;
+            dma-names = "tx", "rx";
+	        status = "disabled";
+        };
+    };
+};

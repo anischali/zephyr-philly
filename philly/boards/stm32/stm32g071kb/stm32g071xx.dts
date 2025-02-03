@@ -7,6 +7,7 @@
 /dts-v1/;
 #include <st/g0/stm32g071Xb.dtsi>
 #include "stm32g071xx-pinctrl.dtsi"
+#include "stm32g071xx-i2s.dtsi"
 
 / {
 	model = "STMicroelectronics STM32G071XX based board";
@@ -26,8 +27,12 @@ stm32_lp_tick_source: &lptim1 {
 	status = "okay";
 };
 
+&dma1 {
+	status = "okay";
+};
+
 &lpuart1 {
-	pinctrl-0 = <&lpuart1_rx_pa09 &lpuart1_tx_pa10>;
+	pinctrl-0 = <&lpuart1_tx_pa09_af1 &lpuart1_rx_pa10_af1>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
 	status = "okay";
@@ -52,4 +57,37 @@ stm32_lp_tick_source: &lptim1 {
 	clock-frequency = <DT_FREQ_M(64)>;
 	ahb-prescaler = <1>;
 	apb1-prescaler = <1>;
+};
+
+&spi1 {
+	status = "disabled";
+};
+
+&spi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi2_miso_pb06_af3
+				 &spi2_mosi_pb07_af1 
+				 &spi2_sck_pb08_af1
+				 &spi2_cs_pb09_af4>;
+	
+	status = "okay";
+
+	sdcard@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		status = "okay";
+		spi-max-frequency = <800000>;
+		sd {
+			compatible = "zephyr,sdmmc-disk";
+			disk-name = "SD";
+			status = "okay";
+		};
+	};
+};
+
+&i2s1 {
+	status = "okay";
+
+	pinctrl-0 = <&i2s1_ws_pa04_af1 &i2s1_ck_pa05_af1 &i2s1_sd_pa07_af1>;
+	pinctrl-names = "default";
 };

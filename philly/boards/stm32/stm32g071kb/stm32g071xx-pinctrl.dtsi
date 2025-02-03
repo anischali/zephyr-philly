@@ -7,11 +7,40 @@
 
 &pinctrl {
 
-	/omit-if-no-ref/ lpuart1_tx_pa10: usart1_tx_pa10 {
-		pinmux = <STM32_PINMUX('A', 10, AF0)>;
+	lpuart1_tx_pa09_af1: uart1_tx {
+		pinmux = <STM32_PINMUX('A', 9, AF1)>;
+	};
+	
+	lpuart1_rx_pa10_af1: uart1_rx {
+		pinmux = <STM32_PINMUX('A', 10, AF1)>;
+	};
+	
+	spi2_miso_pb06_af3: spi2_miso {
+		pinmux = <STM32_PINMUX('B', 6, AF3)>;
+	};
+	
+	spi2_mosi_pb07_af1: spi2_mosi {
+		pinmux = <STM32_PINMUX('B', 7, AF1)>;
+	};
+	
+	spi2_sck_pb08_af1: spi2_sck {
+		pinmux = <STM32_PINMUX('B', 8, AF1)>;
+	};
+	
+	spi2_cs_pb09_af4: spi2_cs {
+		pinmux = <STM32_PINMUX('B', 9, AF4)>;
 	};
 
-	/omit-if-no-ref/ lpuart1_rx_pa09: usart1_rx_pa09 {
-		pinmux = <STM32_PINMUX('A', 9, AF0)>;
+	i2s1_ws_pa04_af1: i2s1_ws {
+		pinmux = <STM32_PINMUX('A', 4, AF1)>;
 	};
+
+	i2s1_ck_pa05_af1: i2s1_ck {
+		pinmux = <STM32_PINMUX('A', 5, AF1)>;
+	};
+
+	i2s1_sd_pa07_af1: i2s1_sd {
+		pinmux = <STM32_PINMUX('A', 7, AF1)>;
+	};
+
 };
