@@ -1,6 +1,1 @@
-zephyr/bootloader
-zephyr/build
-zephyr/modules
-zephyr/tools
-zephyr/zephyr
-zephyr/.west
+build/

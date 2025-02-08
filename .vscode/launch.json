@@ -7,9 +7,10 @@
         {
             "name": "JLink Debug",
             "cwd": "${workspaceFolder}",
-            "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+            "executable": "${workspaceFolder}/zephyr/build/zephyr/philly_app.elf",
             "device": "ATSAMD21G18A",
             "interface": "swd",
+            "debuggerArgs": ["-l", "60000"],
             "servertype": "openocd",
             "configFiles": ["${workspaceFolder}/philly/boards/atmel/samd21/support/openocd.cfg"],
             "request": "launch",

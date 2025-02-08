@@ -5,7 +5,7 @@ python3 -m pip install pyelftools
 
 cd zephyr
 # fetch the zephyr using manifest and prepare the project
-west init --mf west.yml
+west init --mf west.yml build && cd build
 # update source and dependencies
 west update
 # export zephyr environements
@@ -17,5 +17,7 @@ python3 -m pip install $(west packages pip)
 # the target sdk you need instead of intalling all the supported sdk's.
 west sdk install
 # build the project
-west build -p auto -b samd21 ../philly -DBOARD_ROOT=${PWD}/../philly
+west build -p auto -b samd21 ../app -DBOARD_ROOT=${PWD}/..
+#flash to your board
+west flash
 ```

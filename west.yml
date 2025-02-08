@@ -1,0 +1,17 @@
+manifest:
+  self:
+    west-commands: scripts/west-commands.yml  
+
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: refs/tags/v4.0.0
+      import:
+        name-allowlist:
+          - cmsis      # required by the ARM port
+          - hal_atmel  # required by the samd21 board (Atmel)
+          - hal_stm32  # required by the stm32g071kb board (STM32 based)

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# Atmel SAM0 I2S bus driver configuration options
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig I2S
+	bool "I2S (I2S) Bus Drivers"
+	help
+	  Enable Inter Sound (I2S) bus drivers..
+
+if I2S
+
+rsource 'Kconfig.sam0_i2s'
+
+endif # SAM0_I2S
