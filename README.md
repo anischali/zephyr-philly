@@ -17,7 +17,7 @@ python3 -m pip install $(west packages pip)
 # the target sdk you need instead of intalling all the supported sdk's.
 west sdk install
 # build the project
-west build -p auto -b samd21 ../app -DBOARD_ROOT=${PWD}/..
+west build -p auto -b samd21 ../app -DBOARD_ROOT=${PWD}/../app
 #flash to your board
 west flash
 ```
