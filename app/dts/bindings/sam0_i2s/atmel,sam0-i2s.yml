@@ -1,0 +1,43 @@
+# Copyright (c) 2024 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  A generic binding for SAM0 I2S.
+
+  Example definition in devicetree:
+  
+  i2s0: i2s@42005000 {
+    compatible = "atmel,sam0-i2s";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    reg = <0x42005000 0x400>;
+    interrupts = <27 0>;
+    clocks = <&gclk 35>, <&pm 0x20 20>;
+    clock-names = "I2S", "I2S_PM";
+    dmas = <&dmac 41 0 &dmac 43 0>;
+    dma-names = "rx", "tx";
+    status = "disabled";
+  };
+
+compatible: "atmel,sam0-i2s"
+
+include: [i2s-controller.yaml, base.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  clocks:
+    required: true
+  
+  clock-names:
+    required: true
+
+  dmas:
+    required: true
+
+  dma-names:
+    required: true

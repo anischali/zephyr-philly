@@ -10,6 +10,10 @@ menuconfig I2S
 
 if I2S
 
+module = I2S
+module-str = I2S
+source "subsys/logging/Kconfig.template.log_config"
+
 rsource 'Kconfig.sam0_i2s'
 
 endif # SAM0_I2S
