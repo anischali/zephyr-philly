@@ -6,14 +6,16 @@
 
 / {
     soc {
-        i2s0: i2s@42005000 {
+        i2s0: i2s0@42005000 {
 	        compatible = "atmel,sam0-i2s";
 	        #address-cells = <1>;
 	        #size-cells = <0>;
 	        reg = <0x42005000 0x400>;
 	        interrupts = <27 0>;
 			clocks = <&gclk 35>, <&pm 0x20 20>;
-			clock-names = "I2S", "I2S_PM";
+			clock-names = "GCLK", "PM";
+			atmel,assigned-clocks = <&gclk 0>;
+			atmel,assigned-clock-names = "GCLK";
             dmas = <&dmac 41 0 
             		&dmac 43 0>;
             dma-names = "rx", "tx";

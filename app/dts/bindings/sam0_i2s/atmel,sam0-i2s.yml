@@ -21,7 +21,7 @@ description: |
 
 compatible: "atmel,sam0-i2s"
 
-include: [i2s-controller.yaml, base.yaml, pinctrl-device.yaml]
+include: [i2s-controller.yaml, base.yaml, pinctrl-device.yaml, "atmel,assigned-clocks.yaml" ]
 
 properties:
   reg:
@@ -34,6 +34,12 @@ properties:
     required: true
   
   clock-names:
+    required: true
+  
+  atmel,assigned-clocks:
+    required: true
+
+  atmel,assigned-clock-names:
     required: true
 
   dmas:

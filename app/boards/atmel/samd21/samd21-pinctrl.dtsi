@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <dt-bindings/pinctrl/samd21-da1jXabcd-pinctrl.h>
+#include <dt-bindings/pinctrl/samd21-da1gXabcd-pinctrl.h>
 
 &pinctrl {
 
@@ -19,6 +19,14 @@
 			pinmux = <PA18C_SERCOM1_PAD2>,
 				 <PA17C_SERCOM1_PAD1>,
 				 <PA16C_SERCOM1_PAD0>;
+		};
+	};
+
+	sam0_i2s_default: sam0_i2s_default {
+		group1 {
+			pinmux = <PA19G_IIS0_SD>,
+					<PA20G_IIS0_SCK>,
+					<PA21G_IIS0_FS>;
 		};
 	};
 };
