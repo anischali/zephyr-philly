@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT atmel_sam0_i2s
+#define DT_DRV_COMPAT atmel_i2s_sam0
 
 #include <errno.h>
 #include <string.h>
@@ -303,7 +303,9 @@ static int i2s_sam0_init(const struct device *dev)
 
 	i2s->CTRLA.bit.CKEN0 = 1;
 	i2s->CTRLA.bit.SEREN0 = 1;
-	i2s->CTRLA.bit.ENABLE = 1;	
+	i2s->CTRLA.bit.ENABLE = 1;
+
+	return 0;	
 }
 
 #define I2S_SAM0_DMA_CHANNELS(n)					\
