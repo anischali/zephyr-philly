@@ -7,7 +7,7 @@
 / {
     soc {
         i2s0: i2s0@42005000 {
-	        compatible = "atmel,sam0-i2s";
+	        compatible = "atmel,i2s-sam0";
 	        #address-cells = <1>;
 	        #size-cells = <0>;
 	        reg = <0x42005000 0x400>;

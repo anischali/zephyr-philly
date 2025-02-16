@@ -7,7 +7,7 @@ description: |
   Example definition in devicetree:
   
   i2s0: i2s@42005000 {
-    compatible = "atmel,sam0-i2s";
+    compatible = "atmel,i2s-sam0";
     #address-cells = <1>;
     #size-cells = <0>;
     reg = <0x42005000 0x400>;
@@ -19,7 +19,7 @@ description: |
     status = "disabled";
   };
 
-compatible: "atmel,sam0-i2s"
+compatible: "atmel,i2s-sam0"
 
 include: [i2s-controller.yaml, base.yaml, pinctrl-device.yaml, "atmel,assigned-clocks.yaml" ]
 

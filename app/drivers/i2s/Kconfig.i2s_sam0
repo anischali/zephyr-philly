@@ -8,10 +8,10 @@ config SAM0_I2S
 	  Enable Inter Sound (I2S) bus driver for Atmel SAM0 MCU family based on
 	  Synchronous Serial Controller (I2S) module.
 
-config SAM0_I2S_RX_BLOCK_COUNT
+config I2S_SAM0_RX_BLOCK_COUNT
 	int "RX queue length"
 	default 4
 
-config SAM0_I2S_TX_BLOCK_COUNT
+config I2S_SAM0_TX_BLOCK_COUNT
 	int "TX queue length"
 	default 4
