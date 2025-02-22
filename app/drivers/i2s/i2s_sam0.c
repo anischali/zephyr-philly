@@ -53,7 +53,7 @@ struct i2s_sam0_dev_cfg
 	uint32_t gclk_gen;
 	uint16_t gclk_id;
 
-	void (*irq_config)(void);
+	void (*irq_config)(int instance);
 	uint8_t irq_id;
 
 	uint8_t tx_dma_request;
@@ -594,15 +594,10 @@ static DEVICE_API(i2s, i2s_sam0_driver_api) = {
 	.write = i2s_sam0_write,
 };
 
-static const struct device *get_dev_from_dma_channel(uint32_t dma_channel)
+static void i2s_sam0_irq_config(int instance)
 {
-	return &DEVICE_DT_NAME_GET(DT_DRV_INST(0));
-}
-
-static void i2s_sam0_irq_config(void)
-{
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), i2s_sam0_isr,
-		    DEVICE_DT_INST_GET(0), 0);
+	IRQ_CONNECT(DT_INST_IRQN(instance), DT_INST_IRQ(instance, priority), i2s_sam0_isr,
+		    DEVICE_DT_INST_GET(instance), 0);
 }
 
 #define I2S_SAM0_DMA_CHANNELS(n)                                  \
