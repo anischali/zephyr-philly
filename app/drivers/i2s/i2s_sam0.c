@@ -645,7 +645,7 @@ static void i2s_sam0_irq_config(void)
 		},																\
 		.tx = {															\
 			.dma_channel = I2S_SAM0_DMA_CFG(n, tx, channel),			\
-			.dma_perid = I2S_SAM0_DMA_CFG(NEWLIB_THREAD_LOCAL_ERRNO, tx, perid),				\
+			.dma_perid = I2S_SAM0_DMA_CFG(n, tx, request),				\
 			.mem_block_queue.buf = tx_##n_ring_buf,						\
 			.mem_block_queue.len = ARRAY_SIZE(tx_##n_ring_buf),			\
 			.stream_start = tx_stream_start,							\
