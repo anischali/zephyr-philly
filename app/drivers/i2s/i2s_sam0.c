@@ -621,7 +621,7 @@ static void i2s_sam0_irq_config(void)
 		.mclk_mask = ATMEL_SAM0_DT_INST_MCLK_PM_PERIPH_MASK(n, bit),               \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                 \
 		.irq_config = i2s_sam0_irq_config,										   \
-		.irq_id = DT_INST_IRQN(0),												   \
+		.irq_id = DT_INST_IRQN(n),												   \
 		I2S_SAM0_DMA_CHANNELS(n)}
 
 
