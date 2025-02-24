@@ -13,6 +13,7 @@
 #include <zephyr/drivers/dma.h>
 #include <zephyr/drivers/i2s.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/irq.h>
 #include <soc.h>
 
 #ifndef CONFIG_I2S_SAM0_RX_BLOCK_COUNT
@@ -65,8 +66,10 @@ struct i2s_sam0_dev_cfg
 	uint32_t freq;
 	uint16_t prescaler;
 
-	void (*irq_config)(int instance);
+	void (*irq_config)(const struct i2s_sam0_dev_cfg *, const struct device *);
+	void (*irq_callback_isr)(const struct device *);
 	uint8_t irq_id;
+	uint32_t irq_prio;
 
 	uint8_t tx_dma_request;
 	uint8_t tx_dma_channel;
@@ -770,7 +773,7 @@ static int i2s_sam0_init(const struct device *dev)
 	int ret;
 
 	/* Configure interrupts */
-	dev_cfg->irq_config(dev_data->num);
+	dev_cfg->irq_config(dev_cfg, dev);
 
 	/* Initialize semaphores */
 	k_sem_init(&dev_data->rx.sem, 0, CONFIG_I2S_SAM0_RX_BLOCK_COUNT);
@@ -817,10 +820,13 @@ static DEVICE_API(i2s, i2s_sam0_driver_api) = {
 	.write = i2s_sam0_write,
 };
 
-static void i2s_sam0_irq_config(int instance)
+static void i2s_sam0_irq_config(const struct i2s_sam0_dev_cfg *cfg, const struct device *dev)
 {
-	// IRQ_CONNECT(DT_INST_IRQN(instance), DT_INST_IRQ(instance, priority), i2s_sam0_isr,
-	//			DEVICE_DT_INST_GET(instance), 0); // todo: implement irq config
+#ifdef CONFIG_DYNAMIC_INTERRUPTS
+	if (cfg->irq_callback_isr) {
+		arch_irq_connect_dynamic(cfg->irq_id, cfg->irq_prio, cfg->irq_callback_isr, dev, 0);
+	}
+#endif
 }
 
 #define I2S_SAM0_DMA_CHANNELS(n)                                  \
@@ -839,7 +845,9 @@ static void i2s_sam0_irq_config(int instance)
 		.mclk_mask = ATMEL_SAM0_DT_INST_MCLK_PM_PERIPH_MASK(n, bit),               \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                 \
 		.irq_config = i2s_sam0_irq_config,                                         \
+		.irq_callback_isr = i2s_sam0_isr,										   \
 		.irq_id = DT_INST_IRQN(n),                                                 \
+		.irq_prio = DT_INST_IRQ(n, priority),							   \
 		I2S_SAM0_DMA_CHANNELS(n)}
 
 #define I2S_SAM0_DMA_CFG(num, dir, type) (&i2s_sam0_config_##num)->dir##_dma_##type
