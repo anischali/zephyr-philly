@@ -22,6 +22,16 @@
 #define CONFIG_I2S_SAM0_TX_BLOCK_COUNT 16
 #endif
 
+#if __DCACHE_PRESENT == 1
+#define DCACHE_INVALIDATE(addr, size) \
+	SCB_InvalidateDCache_by_Addr((uint32_t *)addr, size)
+#define DCACHE_CLEAN(addr, size) \
+	SCB_CleanDCache_by_Addr((uint32_t *)addr, size)
+#else
+#define DCACHE_INVALIDATE(addr, size) {; }
+#define DCACHE_CLEAN(addr, size) {; }
+#endif
+
 #define I2S_SAM0_WORD_SIZE_BITS_MIN 2
 #define I2S_SAM0_WORD_SIZE_BITS_MAX 32
 #define I2S_SAM0_WORD_PER_FRAME_MIN 1
@@ -66,6 +76,7 @@ struct i2s_sam0_dev_cfg
 
 struct stream
 {
+	const struct device *dev;
 	int32_t state;
 	struct k_sem sem;
 	uint32_t dma_channel;
@@ -94,28 +105,236 @@ struct i2s_sam0_dev_data
 	struct i2s_sam0_dev_cfg *cfg;
 };
 
-static void i2s_sam0_dma_tx_done(const struct device *dma_dev, void *arg,
-								 uint32_t id, int error_code)
+#define MODULO_INC(val, max) { val = (++val < max) ? val : 0; }
+
+static void tx_stream_disable(struct stream *stream, I2s *const i2s,
+							  const struct device *dma_dev);
+static void rx_stream_disable(struct stream *stream, I2s *const i2s,
+							  const struct device *dma_dev);
+
+/*
+ * Get data from the queue
+ */
+static int queue_get(struct ring_buffer *rb, void **mem_block, size_t *size)
 {
-	ARG_UNUSED(dma_dev);
-	ARG_UNUSED(id);
-	ARG_UNUSED(error_code);
+	unsigned int key;
 
-	struct i2s_sam0_dev_data *const dev_data =
-		(struct i2s_sam0_dev_data *const)arg;
-	const struct i2s_sam0_dev_cfg *const cfg = dev_data->cfg;
+	key = irq_lock();
 
-	I2s *const i2s = cfg->regs;
+	if (rb->tail == rb->head)
+	{
+		/* Ring buffer is empty */
+		irq_unlock(key);
+		return -ENOMEM;
+	}
 
-	i2s->INTENSET.vec.TXRDY = (1 << dev_data->num);
+	*mem_block = rb->buf[rb->tail].mem_block;
+	*size = rb->buf[rb->tail].size;
+	MODULO_INC(rb->tail, rb->len);
+
+	irq_unlock(key);
+
+	return 0;
 }
 
-static void i2s_sam0_dma_rx_done(const struct device *dma_dev, void *arg,
-								 uint32_t id, int error_code)
+/*
+ * Put data in the queue
+ */
+static int queue_put(struct ring_buffer *rb, void *mem_block, size_t size)
 {
-	ARG_UNUSED(dma_dev);
-	ARG_UNUSED(id);
-	ARG_UNUSED(error_code);
+	uint16_t head_next;
+	unsigned int key;
+
+	key = irq_lock();
+
+	head_next = rb->head;
+	MODULO_INC(head_next, rb->len);
+
+	if (head_next == rb->tail)
+	{
+		/* Ring buffer is full */
+		irq_unlock(key);
+		return -ENOMEM;
+	}
+
+	rb->buf[rb->head].mem_block = mem_block;
+	rb->buf[rb->head].size = size;
+	rb->head = head_next;
+
+	irq_unlock(key);
+
+	return 0;
+}
+
+static int reload_dma(const struct device *dev_dma, uint32_t channel,
+					  void *src, void *dst, size_t size)
+{
+	int ret;
+
+	ret = dma_reload(dev_dma, channel, (uint32_t)src, (uint32_t)dst, size);
+	if (ret < 0)
+	{
+		return ret;
+	}
+
+	ret = dma_start(dev_dma, channel);
+
+	return ret;
+}
+
+static int start_dma(const struct device *dev_dma, uint32_t channel,
+					 struct dma_config *cfg, void *src, void *dst,
+					 uint32_t blk_size)
+{
+	struct dma_block_config blk_cfg;
+	int ret;
+
+	(void)memset(&blk_cfg, 0, sizeof(blk_cfg));
+	blk_cfg.block_size = blk_size;
+	blk_cfg.source_address = (uint32_t)src;
+	blk_cfg.dest_address = (uint32_t)dst;
+
+	cfg->head_block = &blk_cfg;
+
+	ret = dma_config(dev_dma, channel, cfg);
+	if (ret < 0)
+	{
+		return ret;
+	}
+
+	ret = dma_start(dev_dma, channel);
+
+	return ret;
+}
+
+/* This function is executed in the interrupt context */
+static void dma_rx_callback(const struct device *dma_dev, void *user_data,
+							uint32_t channel, int status)
+{
+	const struct device *dev = (struct device *)user_data;
+	const struct i2s_sam0_dev_cfg *const dev_cfg = dev->config;
+	struct i2s_sam0_dev_data *const dev_data = dev->data;
+	I2s *const i2s = dev_cfg->regs;
+	struct stream *stream = &dev_data->rx;
+	int ret;
+
+	ARG_UNUSED(user_data);
+	__ASSERT_NO_MSG(stream->mem_block != NULL);
+
+	/* Stop reception if there was an error */
+	if (stream->state == I2S_STATE_ERROR)
+	{
+		goto rx_disable;
+	}
+
+	/* All block data received */
+	ret = queue_put(&stream->mem_block_queue, stream->mem_block,
+					stream->cfg.block_size);
+	if (ret < 0)
+	{
+		stream->state = I2S_STATE_ERROR;
+		goto rx_disable;
+	}
+	stream->mem_block = NULL;
+	k_sem_give(&stream->sem);
+
+	/* Stop reception if we were requested */
+	if (stream->state == I2S_STATE_STOPPING)
+	{
+		stream->state = I2S_STATE_READY;
+		goto rx_disable;
+	}
+
+	/* Prepare to receive the next data block */
+	ret = k_mem_slab_alloc(stream->cfg.mem_slab, &stream->mem_block,
+						   K_NO_WAIT);
+	if (ret < 0)
+	{
+		stream->state = I2S_STATE_ERROR;
+		goto rx_disable;
+	}
+
+	/* Assure cache coherency before DMA write operation */
+	DCACHE_INVALIDATE(stream->mem_block, stream->cfg.block_size);
+
+	ret = reload_dma(dev_cfg->dma_dev, stream->dma_channel,
+					 (void *)NULL, stream->mem_block, // implement rhr
+					 stream->cfg.block_size);
+	if (ret < 0)
+	{
+		goto rx_disable;
+	}
+
+	return;
+
+rx_disable:
+	rx_stream_disable(stream, i2s, dev_cfg->dma_dev);
+}
+
+/* This function is executed in the interrupt context */
+static void dma_tx_callback(const struct device *dma_dev, void *user_data,
+							uint32_t channel, int status)
+{
+	const struct device *dev = (struct device *)user_data;
+	const struct i2s_sam0_dev_cfg *const dev_cfg = dev->config;
+	struct i2s_sam0_dev_data *const dev_data = dev->data;
+	I2s *const i2s = dev_cfg->regs;
+	struct stream *stream = &dev_data->tx;
+	size_t mem_block_size;
+	int ret;
+
+	ARG_UNUSED(user_data);
+	__ASSERT_NO_MSG(stream->mem_block != NULL);
+
+	/* All block data sent */
+	k_mem_slab_free(stream->cfg.mem_slab, stream->mem_block);
+	stream->mem_block = NULL;
+
+	/* Stop transmission if there was an error */
+	if (stream->state == I2S_STATE_ERROR)
+	{
+		goto tx_disable;
+	}
+
+	/* Stop transmission if we were requested */
+	if (stream->last_block)
+	{
+		stream->state = I2S_STATE_READY;
+		goto tx_disable;
+	}
+
+	/* Prepare to send the next data block */
+	ret = queue_get(&stream->mem_block_queue, &stream->mem_block,
+					&mem_block_size);
+	if (ret < 0)
+	{
+		if (stream->state == I2S_STATE_STOPPING)
+		{
+			stream->state = I2S_STATE_READY;
+		}
+		else
+		{
+			stream->state = I2S_STATE_ERROR;
+		}
+		goto tx_disable;
+	}
+	k_sem_give(&stream->sem);
+
+	/* Assure cache coherency before DMA read operation */
+	DCACHE_CLEAN(stream->mem_block, mem_block_size);
+
+	ret = reload_dma(dev_cfg->dma_dev, stream->dma_channel,
+					 stream->mem_block, (void *)NULL, // todo: implement RHR
+					 mem_block_size);
+	if (ret < 0)
+	{
+		goto tx_disable;
+	}
+
+	return;
+
+tx_disable:
+	tx_stream_disable(stream, i2s, dev_cfg->dma_dev);
 }
 
 static int set_rx_data_format(const struct i2s_sam0_dev_cfg *const dev_cfg,
@@ -124,9 +343,9 @@ static int set_rx_data_format(const struct i2s_sam0_dev_cfg *const dev_cfg,
 	switch (i2s_cfg->format & I2S_FMT_DATA_FORMAT_MASK)
 	{
 
-		case I2S_FMT_DATA_FORMAT_I2S:
-			break;
-		default:
+	case I2S_FMT_DATA_FORMAT_I2S:
+		break;
+	default:
 	}
 
 	return 0;
@@ -278,16 +497,16 @@ static int rx_stream_start(struct stream *stream, I2s *const i2s,
 		.channel_direction = PERIPHERAL_TO_MEMORY,
 		.source_burst_length = 1,
 		.dest_burst_length = 1,
-		.dma_callback = i2s_sam0_dma_rx_done,
+		.user_data = (void *)stream->dev,
+		.dma_callback = dma_rx_callback,
 	};
 
 	ret = start_dma(dma_dev, stream->dma_channel, &dma_cfg,
-					(void *)NULL, // todo: start dma 
+					(void *)NULL, // todo: start dma
 					stream->mem_block,
 					stream->cfg.block_size);
 	if (ret < 0)
 	{
-		LOG_ERR("Failed to start RX DMA transfer: %d", ret);
 		return ret;
 	}
 
@@ -316,7 +535,8 @@ static int tx_stream_start(struct stream *stream, I2s *const i2s,
 		.channel_direction = MEMORY_TO_PERIPHERAL,
 		.source_burst_length = 1,
 		.dest_burst_length = 1,
-		.dma_callback = i2s_sam0_dma_tx_done,
+		.user_data = (void *)stream->dev,
+		.dma_callback = dma_tx_callback,
 	};
 
 	/* Assure cache coherency before DMA read operation */
@@ -327,7 +547,6 @@ static int tx_stream_start(struct stream *stream, I2s *const i2s,
 					mem_block_size);
 	if (ret < 0)
 	{
-		LOG_ERR("Failed to start TX DMA transfer: %d", ret);
 		return ret;
 	}
 
@@ -585,6 +804,8 @@ static int i2s_sam0_init(const struct device *dev)
 	/* Enable module's IRQ */
 	irq_enable(dev_cfg->irq_id);
 
+	dev_data->tx.dev = dev_data->rx.dev = dev;
+
 	return 0;
 }
 
@@ -598,7 +819,7 @@ static DEVICE_API(i2s, i2s_sam0_driver_api) = {
 
 static void i2s_sam0_irq_config(int instance)
 {
-	//IRQ_CONNECT(DT_INST_IRQN(instance), DT_INST_IRQ(instance, priority), i2s_sam0_isr,
+	// IRQ_CONNECT(DT_INST_IRQN(instance), DT_INST_IRQ(instance, priority), i2s_sam0_isr,
 	//			DEVICE_DT_INST_GET(instance), 0); // todo: implement irq config
 }
 
@@ -623,38 +844,38 @@ static void i2s_sam0_irq_config(int instance)
 
 #define I2S_SAM0_DMA_CFG(num, dir, type) (&i2s_sam0_config_##num)->dir##_dma_##type
 
-#define I2S_SAM0_DEVICE_INIT(n)                                               \
-	PINCTRL_DT_INST_DEFINE(n);                                                \
-	I2S_SAM0_CONFIG_DEFN(n);                                                  \
+#define I2S_SAM0_DEVICE_INIT(n)                                            \
+	PINCTRL_DT_INST_DEFINE(n);                                             \
+	I2S_SAM0_CONFIG_DEFN(n);                                               \
 	struct queue_item rx_##n_ring_buf[CONFIG_I2S_SAM0_RX_BLOCK_COUNT + 1]; \
 	struct queue_item tx_##n_ring_buf[CONFIG_I2S_SAM0_TX_BLOCK_COUNT + 1]; \
-	static struct i2s_sam0_dev_data i2s_sam0_data_##n = {                     \
-		.num = n,                                                             \
-		.rx = {                                                               \
-			.dma_channel = I2S_SAM0_DMA_CFG(n, rx, channel),                  \
-			.dma_perid = I2S_SAM0_DMA_CFG(n, rx, request),                    \
-			.mem_block_queue.buf = rx_##n_ring_buf,                           \
-			.mem_block_queue.len = ARRAY_SIZE(rx_##n_ring_buf),               \
-			.stream_start = rx_stream_start,                                  \
-			.stream_disable = rx_stream_disable,                              \
-			.queue_drop = rx_queue_drop,                                      \
-			.set_data_format = set_rx_data_format,                            \
-		},                                                                    \
-		.tx = {                                                               \
-			.dma_channel = I2S_SAM0_DMA_CFG(n, tx, channel),                  \
-			.dma_perid = I2S_SAM0_DMA_CFG(n, tx, request),                    \
-			.mem_block_queue.buf = tx_##n_ring_buf,                           \
-			.mem_block_queue.len = ARRAY_SIZE(tx_##n_ring_buf),               \
-			.stream_start = tx_stream_start,                                  \
-			.stream_disable = tx_stream_disable,                              \
-			.queue_drop = tx_queue_drop,                                      \
-			.set_data_format = set_tx_data_format,                            \
-		},                                                                    \
-	};                                                                        \
-	DEVICE_DT_INST_DEFINE(n, i2s_sam0_init, NULL,                             \
-						  &i2s_sam0_data_##n,                                 \
-						  &i2s_sam0_config_##n, PRE_KERNEL_1,                 \
-						  CONFIG_I2S_INIT_PRIORITY,                           \
+	static struct i2s_sam0_dev_data i2s_sam0_data_##n = {                  \
+		.num = n,                                                          \
+		.rx = {                                                            \
+			.dma_channel = I2S_SAM0_DMA_CFG(n, rx, channel),               \
+			.dma_perid = I2S_SAM0_DMA_CFG(n, rx, request),                 \
+			.mem_block_queue.buf = rx_##n_ring_buf,                        \
+			.mem_block_queue.len = ARRAY_SIZE(rx_##n_ring_buf),            \
+			.stream_start = rx_stream_start,                               \
+			.stream_disable = rx_stream_disable,                           \
+			.queue_drop = rx_queue_drop,                                   \
+			.set_data_format = set_rx_data_format,                         \
+		},                                                                 \
+		.tx = {                                                            \
+			.dma_channel = I2S_SAM0_DMA_CFG(n, tx, channel),               \
+			.dma_perid = I2S_SAM0_DMA_CFG(n, tx, request),                 \
+			.mem_block_queue.buf = tx_##n_ring_buf,                        \
+			.mem_block_queue.len = ARRAY_SIZE(tx_##n_ring_buf),            \
+			.stream_start = tx_stream_start,                               \
+			.stream_disable = tx_stream_disable,                           \
+			.queue_drop = tx_queue_drop,                                   \
+			.set_data_format = set_tx_data_format,                         \
+		},                                                                 \
+	};                                                                     \
+	DEVICE_DT_INST_DEFINE(n, i2s_sam0_init, NULL,                          \
+						  &i2s_sam0_data_##n,                              \
+						  &i2s_sam0_config_##n, PRE_KERNEL_1,              \
+						  CONFIG_I2S_INIT_PRIORITY,                        \
 						  &i2s_sam0_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(I2S_SAM0_DEVICE_INIT)
