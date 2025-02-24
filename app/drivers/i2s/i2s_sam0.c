@@ -261,7 +261,7 @@ static void dma_rx_callback(const struct device *dma_dev, void *user_data,
 	DCACHE_INVALIDATE(stream->mem_block, stream->cfg.block_size);
 
 	ret = reload_dma(dev_cfg->dma_dev, stream->dma_channel,
-					 (void *)NULL, stream->mem_block, // implement rhr
+					 (void *)&i2s->DATA[0], stream->mem_block, 
 					 stream->cfg.block_size);
 	if (ret < 0)
 	{
@@ -327,7 +327,7 @@ static void dma_tx_callback(const struct device *dma_dev, void *user_data,
 	DCACHE_CLEAN(stream->mem_block, mem_block_size);
 
 	ret = reload_dma(dev_cfg->dma_dev, stream->dma_channel,
-					 stream->mem_block, (void *)NULL, // todo: implement RHR
+					 stream->mem_block, (void *)&i2s->DATA[1], 
 					 mem_block_size);
 	if (ret < 0)
 	{
@@ -505,7 +505,7 @@ static int rx_stream_start(struct stream *stream, I2s *const i2s,
 	};
 
 	ret = start_dma(dma_dev, stream->dma_channel, &dma_cfg,
-					(void *)NULL, // todo: start dma
+					(void *)&i2s->DATA[1], // todo: start dma
 					stream->mem_block,
 					stream->cfg.block_size);
 	if (ret < 0)
@@ -546,7 +546,7 @@ static int tx_stream_start(struct stream *stream, I2s *const i2s,
 	DCACHE_CLEAN(stream->mem_block, mem_block_size);
 
 	ret = start_dma(dma_dev, stream->dma_channel, &dma_cfg,
-					stream->mem_block, (void *)NULL, // todo: start_dma
+					stream->mem_block, (void *)&i2s->DATA[0],
 					mem_block_size);
 	if (ret < 0)
 	{
