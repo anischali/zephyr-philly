@@ -1,237 +1,129 @@
 /*
- * Copyright (c) 2019 Tavish Naruka <tavishnaruka@gmail.com>
- * Copyright (c) 2023 Nordic Semiconductor ASA
- * Copyright (c) 2023 Antmicro <www.antmicro.com>
+ * Copyright 2023 NXP
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/* Sample which uses the filesystem API and SDHC driver */
-
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <zephyr/storage/disk_access.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/fs/fs.h>
-
-#if defined(CONFIG_FAT_FILESYSTEM_ELM)
-
-#include <ff.h>
-
-/*
- *  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
- *  in ffconf.h
- */
-#if defined(CONFIG_DISK_DRIVER_MMC)
-#define DISK_DRIVE_NAME "SD2"
-#else
-#define DISK_DRIVE_NAME "SD"
-#endif
-
-#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
-
-static FATFS fat_fs;
-/* mounting info */
-static struct fs_mount_t mp = {
-	.type = FS_FATFS,
-	.fs_data = &fat_fs,
-};
-
-#elif defined(CONFIG_FILE_SYSTEM_EXT2)
-
-#include <zephyr/fs/ext2.h>
-
-#define DISK_DRIVE_NAME "SD"
-#define DISK_MOUNT_PT "/ext"
-
-static struct fs_mount_t mp = {
-	.type = FS_EXT2,
-	.flags = FS_MOUNT_FLAG_NO_FORMAT,
-	.storage_dev = (void *)DISK_DRIVE_NAME,
-	.mnt_point = "/ext",
-};
-
-#endif
-
-#if defined(CONFIG_FAT_FILESYSTEM_ELM)
-#define FS_RET_OK FR_OK
-#else
-#define FS_RET_OK 0
-#endif
-
-LOG_MODULE_REGISTER(main);
-
-#define MAX_PATH 128
-#define SOME_FILE_NAME "some.dat"
-#define SOME_DIR_NAME "some"
-#define SOME_REQUIRED_LEN MAX(sizeof(SOME_FILE_NAME), sizeof(SOME_DIR_NAME))
-
-static int lsdir(const char *path);
-#ifdef CONFIG_FS_SAMPLE_CREATE_SOME_ENTRIES
-static bool create_some_entries(const char *base_path)
-{
-	char path[MAX_PATH];
-	struct fs_file_t file;
-	int base = strlen(base_path);
-
-	fs_file_t_init(&file);
-
-	if (base >= (sizeof(path) - SOME_REQUIRED_LEN)) {
-		LOG_ERR("Not enough concatenation buffer to create file paths");
-		return false;
-	}
-
-	LOG_INF("Creating some dir entries in %s", base_path);
-	strncpy(path, base_path, sizeof(path));
-
-	path[base++] = '/';
-	path[base] = 0;
-	strcat(&path[base], SOME_FILE_NAME);
-
-	if (fs_open(&file, path, FS_O_CREATE) != 0) {
-		LOG_ERR("Failed to create file %s", path);
-		return false;
-	}
-	fs_close(&file);
-
-	path[base] = 0;
-	strcat(&path[base], SOME_DIR_NAME);
-
-	if (fs_mkdir(path) != 0) {
-		LOG_ERR("Failed to create dir %s", path);
-		/* If code gets here, it has at least successes to create the
-		 * file so allow function to return true.
-		 */
-	}
-	return true;
-}
-#endif
-
-static const char *disk_mount_pt = DISK_MOUNT_PT;
-
-int main(void)
-{
-	/* raw disk i/o */
-	do {
-		static const char *disk_pdrv = DISK_DRIVE_NAME;
-		uint64_t memory_size_mb;
-		uint32_t block_count;
-		uint32_t block_size;
-
-		if (disk_access_ioctl(disk_pdrv,
-				DISK_IOCTL_CTRL_INIT, NULL) != 0) {
-			LOG_ERR("Storage init ERROR!");
-			break;
-		}
-
-		if (disk_access_ioctl(disk_pdrv,
-				DISK_IOCTL_GET_SECTOR_COUNT, &block_count)) {
-			LOG_ERR("Unable to get sector count");
-			break;
-		}
-		LOG_INF("Block count %u", block_count);
-
-		if (disk_access_ioctl(disk_pdrv,
-				DISK_IOCTL_GET_SECTOR_SIZE, &block_size)) {
-			LOG_ERR("Unable to get sector size");
-			break;
-		}
-		printk("Sector size %u\n", block_size);
-
-		memory_size_mb = (uint64_t)block_count * block_size;
-		printk("Memory Size(MB) %u\n", (uint32_t)(memory_size_mb >> 20));
-
-		if (disk_access_ioctl(disk_pdrv,
-				DISK_IOCTL_CTRL_DEINIT, NULL) != 0) {
-			LOG_ERR("Storage deinit ERROR!");
-			break;
-		}
-	} while (0);
-
-	mp.mnt_point = disk_mount_pt;
-
-	int res = fs_mount(&mp);
-
-	if (res == FS_RET_OK) {
-		printk("Disk mounted.\n");
-		/* Try to unmount and remount the disk */
-		res = fs_unmount(&mp);
-		if (res != FS_RET_OK) {
-			printk("Error unmounting disk\n");
-			return res;
-		}
-		res = fs_mount(&mp);
-		if (res != FS_RET_OK) {
-			printk("Error remounting disk\n");
-			return res;
-		}
-
-		if (lsdir(disk_mount_pt) == 0) {
-#ifdef CONFIG_FS_SAMPLE_CREATE_SOME_ENTRIES
-			if (create_some_entries(disk_mount_pt)) {
-				lsdir(disk_mount_pt);
-			}
-#endif
-		}
-	} else {
-		printk("Error mounting disk.\n");
-	}
-
-	fs_unmount(&mp);
-
-	while (1) {
-		k_sleep(K_MSEC(1000));
-	}
-	return 0;
-}
-
-/* List dir entry by path
- *
- * @param path Absolute path to list
- *
- * @return Negative errno code on error, number of listed entries on
- *         success.
- */
-static int lsdir(const char *path)
-{
-	int res;
-	struct fs_dir_t dirp;
-	static struct fs_dirent entry;
-	int count = 0;
-
-	fs_dir_t_init(&dirp);
-
-	/* Verify fs_opendir() */
-	res = fs_opendir(&dirp, path);
-	if (res) {
-		printk("Error opening dir %s [%d]\n", path, res);
-		return res;
-	}
-
-	printk("\nListing dir %s ...\n", path);
-	for (;;) {
-		/* Verify fs_readdir() */
-		res = fs_readdir(&dirp, &entry);
-
-		/* entry.name[0] == 0 means end-of-dir */
-		if (res || entry.name[0] == 0) {
-			break;
-		}
-
-		if (entry.type == FS_DIR_ENTRY_DIR) {
-			printk("[DIR ] %s\n", entry.name);
-		} else {
-			printk("[FILE] %s (size = %zu)\n",
-				entry.name, entry.size);
-		}
-		count++;
-	}
-
-	/* Verify fs_closedir() */
-	fs_closedir(&dirp);
-	if (res == 0) {
-		res = count;
-	}
-
-	return res;
-}
+ #include <stdio.h>
+ #include <zephyr/kernel.h>
+ #include <zephyr/drivers/i2s.h>
+ #include <zephyr/sys/iterable_sections.h>
+ 
+ #define SAMPLE_NO 64
+ 
+ /* The data represent a sine wave */
+ static int16_t data[SAMPLE_NO] = {
+       3211,   6392,   9511,  12539,  15446,  18204,  20787,  23169,
+      25329,  27244,  28897,  30272,  31356,  32137,  32609,  32767,
+      32609,  32137,  31356,  30272,  28897,  27244,  25329,  23169,
+      20787,  18204,  15446,  12539,   9511,   6392,   3211,      0,
+      -3212,  -6393,  -9512, -12540, -15447, -18205, -20788, -23170,
+     -25330, -27245, -28898, -30273, -31357, -32138, -32610, -32767,
+     -32610, -32138, -31357, -30273, -28898, -27245, -25330, -23170,
+     -20788, -18205, -15447, -12540,  -9512,  -6393,  -3212,     -1,
+ };
+ 
+ /* Fill buffer with sine wave on left channel, and sine wave shifted by
+  * 90 degrees on right channel. "att" represents a power of two to attenuate
+  * the samples by
+  */
+ static void fill_buf(int16_t *tx_block, int att)
+ {
+     int r_idx;
+ 
+     for (int i = 0; i < SAMPLE_NO; i++) {
+         /* Left channel is sine wave */
+         tx_block[2 * i] = data[i] / (1 << att);
+         /* Right channel is same sine wave, shifted by 90 degrees */
+         r_idx = (i + (ARRAY_SIZE(data) / 4)) % ARRAY_SIZE(data);
+         tx_block[2 * i + 1] = data[r_idx] / (1 << att);
+     }
+ }
+ 
+ #define NUM_BLOCKS 20
+ #define BLOCK_SIZE (2 * sizeof(data))
+ 
+ #ifdef CONFIG_NOCACHE_MEMORY
+     #define MEM_SLAB_CACHE_ATTR __nocache
+ #else
+     #define MEM_SLAB_CACHE_ATTR
+ #endif /* CONFIG_NOCACHE_MEMORY */
+ 
+ static char MEM_SLAB_CACHE_ATTR __aligned(WB_UP(32))
+     _k_mem_slab_buf_tx_0_mem_slab[(NUM_BLOCKS) * WB_UP(BLOCK_SIZE)];
+ 
+ static STRUCT_SECTION_ITERABLE(k_mem_slab, tx_0_mem_slab) =
+     Z_MEM_SLAB_INITIALIZER(tx_0_mem_slab, _k_mem_slab_buf_tx_0_mem_slab,
+                 WB_UP(BLOCK_SIZE), NUM_BLOCKS);
+ 
+ int main(void)
+ {
+     void *tx_block[NUM_BLOCKS];
+     struct i2s_config i2s_cfg;
+     int ret;
+     uint32_t tx_idx;
+     const struct device *dev_i2s = DEVICE_DT_GET(DT_ALIAS(i2s));
+ 
+     if (!device_is_ready(dev_i2s)) {
+         printf("I2S device not ready\n");
+         return -ENODEV;
+     }
+     /* Configure I2S stream */
+     i2s_cfg.word_size = 16U;
+     i2s_cfg.channels = 2U;
+     i2s_cfg.format = I2S_FMT_DATA_FORMAT_I2S;
+     i2s_cfg.frame_clk_freq = 44100;
+     i2s_cfg.block_size = BLOCK_SIZE;
+     i2s_cfg.timeout = 2000;
+     /* Configure the Transmit port as Master */
+     i2s_cfg.options = I2S_OPT_FRAME_CLK_MASTER
+             | I2S_OPT_BIT_CLK_MASTER;
+     i2s_cfg.mem_slab = &tx_0_mem_slab;
+     ret = i2s_configure(dev_i2s, I2S_DIR_TX, &i2s_cfg);
+     if (ret < 0) {
+         printf("Failed to configure I2S stream\n");
+         return ret;
+     }
+ 
+     /* Prepare all TX blocks */
+     for (tx_idx = 0; tx_idx < NUM_BLOCKS; tx_idx++) {
+         ret = k_mem_slab_alloc(&tx_0_mem_slab, &tx_block[tx_idx],
+                        K_FOREVER);
+         if (ret < 0) {
+             printf("Failed to allocate TX block\n");
+             return ret;
+         }
+         fill_buf((uint16_t *)tx_block[tx_idx], tx_idx % 3);
+     }
+ 
+     tx_idx = 0;
+     /* Send first block */
+     ret = i2s_write(dev_i2s, tx_block[tx_idx++], BLOCK_SIZE);
+     if (ret < 0) {
+         printf("Could not write TX buffer %d\n", tx_idx);
+         return ret;
+     }
+     /* Trigger the I2S transmission */
+     ret = i2s_trigger(dev_i2s, I2S_DIR_TX, I2S_TRIGGER_START);
+     if (ret < 0) {
+         printf("Could not trigger I2S tx\n");
+         return ret;
+     }
+ 
+     for (; tx_idx < NUM_BLOCKS; ) {
+         ret = i2s_write(dev_i2s, tx_block[tx_idx++], BLOCK_SIZE);
+         if (ret < 0) {
+             printf("Could not write TX buffer %d\n", tx_idx);
+             return ret;
+         }
+     }
+     /* Drain TX queue */
+     ret = i2s_trigger(dev_i2s, I2S_DIR_TX, I2S_TRIGGER_DRAIN);
+     if (ret < 0) {
+         printf("Could not trigger I2S tx\n");
+         return ret;
+     }
+     printf("All I2S blocks written\n");
+     return 0;
+ }
+ 

@@ -23,6 +23,11 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 	};
+
+	aliases {
+		i2s = &i2s0;
+		sdhc = &sdhc0;
+	};
 };
 
 &cpu0 {
@@ -53,7 +58,7 @@
 
 	cs-gpios = <&porta 0 GPIO_ACTIVE_LOW>;
 
-	sdhc: sdhc@0 {
+	sdhc0: sdhc@0 {
 		compatible = "zephyr,sdhc-spi-slot";
 		reg = <0>;
 		status = "okay";

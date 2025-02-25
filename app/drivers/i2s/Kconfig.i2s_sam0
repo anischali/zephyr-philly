@@ -1,7 +1,7 @@
-config SAM0_I2S
+config I2S_SAM0
 	bool "Atmel SAM0 MCU family I2S (I2S) Bus Driver"
 	default y
-	depends on DT_HAS_ATMEL_SAM0_I2S_ENABLED
+	depends on DT_HAS_ATMEL_I2S_SAM0_ENABLED
 	select PINCTRL
 	select DMA
 	help
