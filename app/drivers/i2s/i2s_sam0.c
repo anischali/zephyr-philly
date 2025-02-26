@@ -883,7 +883,7 @@ static void i2s_sam0_irq_config(const struct i2s_sam0_dev_cfg *cfg, const struct
 	};                                                                     \
 	DEVICE_DT_INST_DEFINE(n, i2s_sam0_init, NULL,                          \
 						  &i2s_sam0_data_##n,                              \
-						  &i2s_sam0_config_##n, PRE_KERNEL_1,              \
+						  &i2s_sam0_config_##n, POST_KERNEL,              \
 						  CONFIG_I2S_INIT_PRIORITY,                        \
 						  &i2s_sam0_driver_api);
 

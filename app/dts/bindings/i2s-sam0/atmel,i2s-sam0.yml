@@ -21,7 +21,7 @@ description: |
 
 compatible: "atmel,i2s-sam0"
 
-include: [i2s-controller.yaml, base.yaml, pinctrl-device.yaml, "atmel,assigned-clocks.yaml" ]
+include: [base.yaml, i2s-controller.yaml, pinctrl-device.yaml, "atmel,assigned-clocks.yaml" ]
 
 properties:
   reg:
