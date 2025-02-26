@@ -13,6 +13,7 @@
 #include <zephyr/drivers/dma.h>
 #include <zephyr/drivers/i2s.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/devicetree.h>
 #include <zephyr/irq.h>
 #include <soc.h>
 
