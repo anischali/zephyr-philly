@@ -7,12 +7,12 @@
         {
             "name": "JLink Debug",
             "cwd": "${workspaceFolder}",
-            "executable": "${workspaceFolder}/zephyr/build/zephyr/philly_app.elf",
+            "executable": "${workspaceFolder}/build/build/zephyr/philly_app.elf",
             "device": "ATSAMD21G18A",
             "interface": "swd",
             "debuggerArgs": ["-l", "60000"],
             "servertype": "openocd",
-            "configFiles": ["${workspaceFolder}/philly/boards/atmel/samd21/support/openocd.cfg"],
+            "configFiles": ["${workspaceFolder}/app/boards/atmel/samd21/support/openocd.cfg"],
             "request": "launch",
             "type": "cortex-debug",
             "runToEntryPoint": "main",
@@ -21,14 +21,14 @@
         {
             "name": "JLink Debug (attach)",
             "cwd": "${workspaceFolder}",
-            "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+            "executable": "${workspaceFolder}/build/build/zephyr/philly_app.elf",
             "device": "ATSAMD21G18A",
             "interface": "swd",
             "request": "attach",
             "type": "cortex-debug",
             "runToEntryPoint": "main",
             "servertype": "openocd",
-            "configFiles": ["${workspaceFolder}/philly/boards/atmel/samd21/support/openocd.cfg"],
+            "configFiles": ["${workspaceFolder}/app/boards/atmel/samd21/support/openocd.cfg"],
             "showDevDebugOutput": "raw",
         }
     ]
