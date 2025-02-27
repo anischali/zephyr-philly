@@ -16,8 +16,8 @@
 			clock-names = "GCLK", "PM";
 			atmel,assigned-clocks = <&gclk 0>;
 			atmel,assigned-clock-names = "GCLK";
-            dmas = <&dmac 41 0 
-            		&dmac 43 0>;
+            dmas = <&dmac 0 41>,  
+            		<&dmac 1 43>;
             dma-names = "rx", "tx";
 	        status = "disabled";
         };

@@ -363,7 +363,6 @@ static int set_tx_data_format(const struct i2s_sam0_dev_cfg *const dev_cfg,
 
 	case I2S_FMT_DATA_FORMAT_I2S:
 	default:
-		return -EINVAL;
 	}
 
 	return 0;

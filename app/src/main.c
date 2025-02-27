@@ -40,7 +40,7 @@
      }
  }
  
- #define NUM_BLOCKS 20
+ #define NUM_BLOCKS 5
  #define BLOCK_SIZE (2 * sizeof(data))
  
  #ifdef CONFIG_NOCACHE_MEMORY
