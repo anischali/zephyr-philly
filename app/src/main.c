@@ -40,7 +40,7 @@
      }
  }
  
- #define NUM_BLOCKS 5
+ #define NUM_BLOCKS 20
  #define BLOCK_SIZE (2 * sizeof(data))
  
  #ifdef CONFIG_NOCACHE_MEMORY
@@ -124,6 +124,8 @@
          return ret;
      }
      printf("All I2S blocks written\n");
+     
+     while (true);
      return 0;
  }
  

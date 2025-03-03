@@ -11,6 +11,7 @@ project(philly)
 
 enable_language(C ASM)
 
+#add_subdirectory(drivers/i2s)
 
 target_sources(app PRIVATE
 src/main.c
