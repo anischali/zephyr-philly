@@ -24,7 +24,7 @@
 
 	sam0_i2s_default: sam0_i2s_default {
 		group1 {
-			pinmux = <PA19G_IIS0_SD>,
+			pinmux = <PA7G_IIS0_SD>,
 					<PA20G_IIS0_SCK>,
 					<PA21G_IIS0_FS>;
 		};
