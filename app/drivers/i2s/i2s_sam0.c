@@ -71,6 +71,7 @@ struct i2s_sam0_dev_cfg
 	void (*irq_callback_isr)(const struct device *);
 	uint8_t irq_id;
 	uint32_t irq_prio;
+	bool mck_enable;
 
 	uint8_t tx_dma_request;
 	uint8_t tx_dma_channel;
@@ -80,6 +81,7 @@ struct i2s_sam0_dev_cfg
 
 struct stream
 {
+	int num;
 	const struct device *dev;
 	int32_t state;
 	struct k_sem sem;
@@ -505,7 +507,7 @@ static int rx_stream_start(struct stream *stream, I2s *const i2s,
 	};
 
 	ret = start_dma(dma_dev, stream->dma_channel, &dma_cfg,
-					(void *)&i2s->DATA[1], // todo: start dma
+					(void *)&i2s->DATA[stream->num], // todo: start dma
 					stream->mem_block,
 					stream->cfg.block_size);
 	if (ret < 0)
@@ -546,7 +548,7 @@ static int tx_stream_start(struct stream *stream, I2s *const i2s,
 	DCACHE_CLEAN(stream->mem_block, mem_block_size);
 
 	ret = start_dma(dma_dev, stream->dma_channel, &dma_cfg,
-					stream->mem_block, (void *)&i2s->DATA[0],
+					stream->mem_block, (void *)&i2s->DATA[stream->num],
 					mem_block_size);
 	if (ret < 0)
 	{
@@ -793,17 +795,21 @@ static int i2s_sam0_init(const struct device *dev)
 	}
 
 	*dev_cfg->mclk |= dev_cfg->mclk_mask;
-
 #ifdef MCLK
 	GCLK->PCHCTRL[dev_cfg->gclk_id].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN(dev_cfg->gclk_gen);
 #else
 	GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN(dev_cfg->gclk_gen) | GCLK_CLKCTRL_ID(dev_cfg->gclk_id);
 #endif
-
-	i2s->CTRLA.bit.CKEN0 = 1;
-	i2s->CTRLA.bit.SEREN0 = 1;
+	
+	i2s->CLKCTRL[dev_data->num].bit.MCKEN = !!dev_cfg->mck_enable;
+	i2s->CLKCTRL[dev_data->num].bit.SLOTSIZE = 3;
+	i2s->CLKCTRL[dev_data->num].bit.FSWIDTH = 0;
+	i2s->CLKCTRL[dev_data->num].bit.NBSLOTS = 2;
+	i2s->CLKCTRL[dev_data->num].bit.BITDELAY = 0;
+	i2s->CTRLA.vec.CKEN = 1 << dev_data->num;
+	i2s->CTRLA.vec.SEREN = 1 << dev_data->num;
 	i2s->CTRLA.bit.ENABLE = 1;
-
+	
 	/* Enable module's IRQ */
 	irq_enable(dev_cfg->irq_id);
 
@@ -847,7 +853,8 @@ static void i2s_sam0_irq_config(const struct i2s_sam0_dev_cfg *cfg, const struct
 		.irq_config = i2s_sam0_irq_config,                                         \
 		.irq_callback_isr = i2s_sam0_isr,										   \
 		.irq_id = DT_INST_IRQN(n),                                                 \
-		.irq_prio = DT_INST_IRQ(n, priority),							   \
+		.irq_prio = DT_INST_IRQ(n, priority),							           \
+		.mck_enable = !DT_PROP_OR(n, no_mck, 1), 								       \
 		I2S_SAM0_DMA_CHANNELS(n)}
 
 #define I2S_SAM0_DMA_CFG(num, dir, type) (&i2s_sam0_config_##num)->dir##_dma_##type
@@ -859,7 +866,8 @@ static void i2s_sam0_irq_config(const struct i2s_sam0_dev_cfg *cfg, const struct
 	struct queue_item tx_##n_ring_buf[CONFIG_I2S_SAM0_TX_BLOCK_COUNT + 1]; \
 	static struct i2s_sam0_dev_data i2s_sam0_data_##n = {                  \
 		.num = n,                                                          \
-		.rx = {                                                            \
+		.rx = {															   \
+			.num = n,                                                      \
 			.dma_channel = I2S_SAM0_DMA_CFG(n, rx, channel),               \
 			.dma_perid = I2S_SAM0_DMA_CFG(n, rx, request),                 \
 			.mem_block_queue.buf = rx_##n_ring_buf,                        \
@@ -870,6 +878,7 @@ static void i2s_sam0_irq_config(const struct i2s_sam0_dev_cfg *cfg, const struct
 			.set_data_format = set_rx_data_format,                         \
 		},                                                                 \
 		.tx = {                                                            \
+			.num = n,                                                      \
 			.dma_channel = I2S_SAM0_DMA_CFG(n, tx, channel),               \
 			.dma_perid = I2S_SAM0_DMA_CFG(n, tx, request),                 \
 			.mem_block_queue.buf = tx_##n_ring_buf,                        \
