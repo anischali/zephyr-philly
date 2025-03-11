@@ -24,9 +24,9 @@
 
 	sam0_i2s_default: sam0_i2s_default {
 		group1 {
-			pinmux = <PA7G_IIS0_SD>,
-					<PA20G_IIS0_SCK>,
-					<PA21G_IIS0_FS>;
+			pinmux = <PA7G_IIS0_SD>, // esc_pwm_3 (orange)
+					<PA20G_IIS0_SCK>, // ser_5_0 (green)
+					<PA21G_IIS0_FS>; // ser_5_1 (blue)
 		};
 	};
 };

@@ -20,6 +20,7 @@
             		<&dmac 1 43>;
             dma-names = "rx", "tx";
 	        status = "disabled";
+			no-mck;
         };
 	};
 };

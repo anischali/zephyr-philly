@@ -47,3 +47,7 @@ properties:
 
   dma-names:
     required: true
+
+  no-mck:
+    type: boolean
+    required: false
